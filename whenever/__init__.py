@@ -36,18 +36,29 @@ op: action+ statements | statements | action+;
 
 
 number: DECIMAL;
+
+
 math: number;
 
-compare: ">" | ">=" | "<" | "<=";
-bool: math "||" math | math compare math;
 function: "N" "(" expr ")";
-expr: bool | math | function;
+
+
+
+
+expr: function | math;
+
+
+chain: "||" | "&&";
+compare: ">" | ">=" | "<" | "<=";
+bool: expr compare expr | expr;
+booleans: (bool chain)* bool;
+
 
 statement: expr "#" expr | expr;
 statements: (statement ",")* statement;
 
 action_name: "print" | "defer" | "again" | "forget";
-action: action_name "(" expr ")";
+action: action_name "(" booleans ")";
 
 """)
 
