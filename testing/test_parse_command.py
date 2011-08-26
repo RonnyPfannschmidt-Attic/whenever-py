@@ -1,7 +1,8 @@
 from whenever import parse_command
 commands = [
     'defer (1) again (2) 3;',
-    'again (1) defer (3 || N(1)<=N(2) || N(7)>99) 2#N(1),3,7;'
+    'again (1) defer (3 || N(1)<=N(2) || N(7)>99) 2#N(1),3,7;',
+    'defer (3 || N(1)<=N(2))',
 ]
 
 
@@ -13,6 +14,8 @@ def test_parse_command(command):
     try:
         parse_command(command)
     except Exception, e:
+        if not hasattr(e, 'nice_error_message'):
+            raise
         print e.nice_error_message()
         print command
         print ' '*e.args[0].i + '^'
