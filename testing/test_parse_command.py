@@ -13,8 +13,8 @@ def test_parse_command(command):
     try:
         parse_command(command)
     except Exception, e:
-        print command
         print e.nice_error_message()
+        print command
         print ' '*e.args[0].i + '^'
         raise
 
