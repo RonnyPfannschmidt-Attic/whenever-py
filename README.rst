@@ -259,26 +259,12 @@ This will do the same thing as the endless loop, but will accumulate multiple co
 
 Something more interesting.
 
-::
-
-  1 defer (4 || N(1)<N(2) && N(2)<N(3)) print(N(1)+" bottles of beer on the wall, "+N(1)+" bottles of beer,");
-  2 defer (4 || N(1)==N(2)) print("Take one down and pass it around,");
-  3 defer (4 || N(2)==N(3)) print(N(1)+" bottles of beer on the wall.");
-  4 1#98,2#98,3#98;
+.. include:: examples/bottles.when
 
 Fibonacci Numbers
 +++++++++++++++++
 
 This prints the first 100 Fibonacci numbers. Eventually.
 
-::
-
-  1 again (1) defer (3 || N(1)<=N(2) || N(7)>99) 2#N(1),3,7;
-  2 again (2) defer (3 || N(2)<=N(1) || N(7)>99) 1#N(2),3,7;
-  3 defer (5) print(N(1)+N(2));
-  4 defer (5) print("1");
-  5 4,-3,7;
-  6 defer (4) 3;
-  7 7;
-  8 defer (N(7)<100) -1#N(1),-2#N(2),-7#100,-3;
-  9 defer (3 || 6) 1,3;
+.. include:: examples/fib.when
+  :literal:
