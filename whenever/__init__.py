@@ -10,6 +10,8 @@ def parse(filename):
     fp = open_file_as_stream(filename)
     while True:
         line = fp.readline()
+        if len(line) == 0:
+            break
         number, commands = parseline(line)
         assert number not in result
         result[number] = commands
@@ -24,43 +26,66 @@ def parseline(line):
     except Exception, e:
         print e.args[0], e.nice_error_message()
         print commands
+        print ' '*e.args[0].i + '^'
         raise
 
 regexs, rules, ToAST = parse_ebnf(
 """
 IGNORE: " ";
 DECIMAL: "0|[1-9][0-9]*";
+STRING: "\\"[^\\\\"]*\\"";
 
-command:  op ";";
-op: action+ statements | statements | action+;
+RPAR: "\)";
+LPAR: "\(";
+PLUS: "\+";
+STAR: "\*";
+FUNC: "N";
+
+LT: "<";
+GT: ">";
+LTE: "<=";
+GTE: ">=";
+
+SHARP: "#";
+COMMA: ",";
+SEMICOLON: ";";
+
+OR: "\|\|";
+AND: "&&";
+
+command:  op SEMICOLON;
+op: action+ statements | action+ | statements;
 
 
-number: DECIMAL;
+
+integer: DECIMAL | "-" DECIMAL;
+number: integer| function | STRING;
+
+statement: integer [SHARP] expr | integer;
+statements: (statement [COMMA])* statement;
 
 
-math: number;
 
-function: "N" "(" expr ")";
+function: "N" [LPAR] expr [RPAR];
 
+addition: (number [PLUS])* number;
+expr: addition|number;
 
-
-
-expr: function | math;
-
-
-chain: "||" | "&&";
-compare: ">" | ">=" | "<" | "<=";
-bool: expr compare expr | expr;
-booleans: (bool chain)* bool;
+comparisation: LT | GT | LTE | GTE;
+compare: expr comparisation expr;
 
 
-statement: expr "#" expr | expr;
-statements: (statement ",")* statement;
+bool: compare | expr;
+chain: AND |OR;
+boolean: (bool chain)* bool;
 
-action_name: "print" | "defer" | "again" | "forget";
-action: action_name "(" booleans ")";
+
+ACTION: "defer|again|forget";
+PRINT: "print";
+action: ACTION [LPAR] boolean [RPAR] | PRINT [LPAR] expr [RPAR];
 
 """)
+
 
 parse_command = make_parse_function(regexs, rules)
 

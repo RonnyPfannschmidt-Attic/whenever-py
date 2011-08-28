@@ -1,8 +1,19 @@
 from whenever import parse_command
 commands = [
+    '1;',
+    '1#2;',
+    'print(42);',
+    '4,-3,7;',
+    'print("a");',
+    'defer (3 || 6) 1,3;',
     'defer (1) again (2) 3;',
+    'defer (3 || N(1)<=N(2) || N(7)>99) 2#N(1),3,7;',
     'again (1) defer (3 || N(1)<=N(2) || N(7)>99) 2#N(1),3,7;',
-    'defer (3 || N(1)<=N(2))',
+    'defer (3 || N(1)<=N(2));',
+    'print(N(1)+N(2));',
+    'defer (5) print(N(1)+N(2));',
+    'defer (5) print(1+1);',
+    'defer (N(1) + N(3));',
 ]
 
 
