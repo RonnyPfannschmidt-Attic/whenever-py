@@ -1,7 +1,8 @@
 from pypy.rlib.streamio import open_file_as_stream
 
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
-
+from pypy.rlib.parsing.deterministic import LexerError
+from pypy.rlib.parsing.parsing import ParseError
 
 
 def parse(filename):
@@ -23,7 +24,12 @@ def parseline(line):
     print commands
     try:
         return int(number_str), parse_command(commands[:-1])
-    except Exception, e:
+    except LexerError, e:
+        print e.args[0], e.nice_error_message()
+        print commands
+        print ' '*e.args[2].i + '^'
+        raise
+    except ParseError, e:
         print e.args[0], e.nice_error_message()
         print commands
         print ' '*e.args[0].i + '^'
@@ -41,6 +47,7 @@ PLUS: "\+";
 STAR: "\*";
 FUNC: "N";
 
+EQ: "==";
 LT: "<";
 GT: ">";
 LTE: "<=";
@@ -71,7 +78,7 @@ function: "N" [LPAR] expr [RPAR];
 addition: (number [PLUS])* number;
 expr: addition|number;
 
-comparisation: LT | GT | LTE | GTE;
+comparisation: EQ | LT | GT | LTE | GTE;
 compare: expr comparisation expr;
 
 
