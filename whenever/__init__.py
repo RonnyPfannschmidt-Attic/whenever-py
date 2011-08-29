@@ -1,109 +1,29 @@
-from pypy.rlib.streamio import open_file_as_stream
 
-from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
-from pypy.rlib.parsing.deterministic import LexerError
-from pypy.rlib.parsing.parsing import ParseError
+from .parse import parse, parse_command
+from .eval import Evaluator
+from pypy.rlib.rrandom import Random
 
-
-def parse(filename):
-    result = {}
-
-    fp = open_file_as_stream(filename)
-    while True:
-        line = fp.readline()
-        if len(line) == 0:
-            break
-        number, commands = parseline(line)
-        assert number not in result
-        result[number] = commands
-
-
-
-def parseline(line):
-    number_str, commands = line.split(' ', 1)
-    print commands
-    try:
-        return int(number_str), parse_command(commands[:-1])
-    except LexerError, e:
-        print e.args[0], e.nice_error_message()
-        print commands
-        print ' '*e.args[2].i + '^'
-        raise
-    except ParseError, e:
-        print e.args[0], e.nice_error_message()
-        print commands
-        print ' '*e.args[0].i + '^'
-        raise
-
-regexs, rules, ToAST = parse_ebnf(
-"""
-IGNORE: " ";
-DECIMAL: "0|[1-9][0-9]*";
-STRING: "\\"[^\\\\"]*\\"";
-
-RPAR: "\)";
-LPAR: "\(";
-PLUS: "\+";
-STAR: "\*";
-FUNC: "N";
-
-EQ: "==";
-LT: "<";
-GT: ">";
-LTE: "<=";
-GTE: ">=";
-
-SHARP: "#";
-COMMA: ",";
-SEMICOLON: ";";
-
-OR: "\|\|";
-AND: "&&";
-
-command:  op SEMICOLON;
-op: action+ statements | action+ | statements;
-
-
-
-integer: DECIMAL | "-" DECIMAL;
-number: integer| function | STRING;
-
-statement: integer [SHARP] expr | integer;
-statements: (statement [COMMA])* statement;
-
-
-
-function: "N" [LPAR] expr [RPAR];
-
-addition: (number [PLUS])* number;
-expr: addition|number;
-
-comparisation: EQ | LT | GT | LTE | GTE;
-compare: expr comparisation expr;
-
-
-bool: compare | expr;
-chain: AND |OR;
-boolean: (bool chain)* bool;
-
-
-ACTION: "defer|again|forget";
-PRINT: "print";
-action: ACTION [LPAR] boolean [RPAR] | PRINT [LPAR] expr [RPAR];
-
-""")
-
-
-parse_command = make_parse_function(regexs, rules)
-
-
-class Command(object):
-    def __init__(self, tree):
-        self.tree = tree
+random = Random()
 
 
 class Runner(object):
+    __slots__ = 'statements', 'todo'
     def __init__(self, statements):
+        assert isinstance(statements, dict)
         self.statements = statements
+        self.todo = list(statements.keys())
+
     def run(self):
-        pass
+
+        while len(self.todo):
+            rand = random.random()
+            l = len(self.todo)
+
+            number = int(l*rand)
+
+            command = self.todo.pop(number)
+
+            evaluator = Evaluator(self.todo)
+            evaluator.handle(self.statements[command])
+            if evaluator.keep:
+                self.todo.append(number)
