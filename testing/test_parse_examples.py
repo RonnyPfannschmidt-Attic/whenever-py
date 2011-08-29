@@ -1,5 +1,5 @@
 import py
-from whenever import parse
+from whenever import parse, Runner
 examples = py.path.local(__file__).join('../../examples/')
 
 def pytest_generate_tests(metafunc):
@@ -8,3 +8,10 @@ def pytest_generate_tests(metafunc):
 
 def test_parse_example(path):
     parse(str(path))
+
+
+def test_run_example(path):
+    statements = parse(str(path))
+    runner = Runner(statements)
+    runner.run()
+
