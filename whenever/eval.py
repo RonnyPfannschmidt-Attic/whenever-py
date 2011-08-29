@@ -1,5 +1,5 @@
 from pypy.rlib.parsing.tree import Nonterminal
-
+from pypy.rlib.objectmodel import specialize
 
 
 class W_Object(object):
@@ -27,6 +27,24 @@ class W_Action(W_Object):
 
 
 class W_Compare(W_Object):
+    __slots__ = 'symbol',
+
+    mapping = {
+        'EQ': lambda x,y: x==y,
+        'LT': lambda x,y: x<y,
+        'GT': lambda x,y: x>y,
+        'LTE': lambda x,y: x<=y,
+        'GTE': lambda x,y: x>=y,
+    }
+
+    def __init__(w_self, op):
+        w_self.symbol = op
+
+    def op(self, a, b):
+        call = self.mapping[self.symbol](a,b)
+
+
+class W_Chain(W_Object):
     __slots__ = 'op',
     def __init__(w_self, op):
         w_self.op = op
@@ -37,6 +55,8 @@ class W_Bool(W_Object):
     def __init__(self, value):
         self.value = value
 
+
+
 class Evaluator(object):
     __slots__ = 'todo', 'resultstate', 'stack', 'node_stack', 'keep'
 
@@ -45,6 +65,17 @@ class Evaluator(object):
         self.stack = []
         self.node_stack = []
         self.keep = False
+
+
+    def push(self, item):
+        self.stack.append(item)
+    
+    @specialize.arg(1)
+    def pop(self, type):
+        assert len(self.stack) > 0
+        item = self.stack.pop()
+        assert isinstance(item, type)
+        return item
 
     def handle(self, node):
         #print ' '*len(self.node_stack), node.symbol
@@ -65,24 +96,35 @@ class Evaluator(object):
     def ignore(self, node):
         pass
 
-    handle_COMMA = handle_LPAR = handle_RPAR = \
-            handle_SEMICOLON = handle_PRINT = handle_PLUS = \
-            handle_SHARP = ignore
-
     def handle_ACTION(self, node):
-        self.stack.append(W_Action(node.token.source))
+        self.push(W_Action(node.token.source))
 
     def handle_DECIMAL(self, node):
-        self.stack.append(W_Int(int(node.token.source)))
+        self.push(W_Int(int(node.token.source)))
 
     def handle_STRING(self, node):
-        self.stack.append(W_String(node.token.source[1:-1])) # unescape?
+        source = node.token.source
+        l = len(source)
+        assert l >= 2 # for the ""
+        end = l-1
+        assert end >=0
+        striped = source[1:end]
+        
+        self.push(W_String(striped)) # unescape?
 
-    def handle_LT(self, node): self.stack.append(W_Compare(lambda a,b: a<b))
-    def handle_GT(self, node): self.stack.append(W_Compare(lambda a,b: a>b))
-    def handle_LTE(self, node): self.stack.append(W_Compare(lambda a,b: a<=b))
+    
 
-    def handle_OR(self, node): self.stack.append(W_Compare(lambda a,b: a | b))
+    def push_symbol(self, node):
+        self.push(W_Compare(node.symbol))
+
+    handle_GT = handle_LT = handle_GTE = \
+            handle_LTE = handle_EQ = push_symbol
+
+    def handle_OR(self, node):
+        self.push(W_Chain('o'))
+
+    def handle_AND(self, node):
+        self.push(W_Chain('a'))
 
     def handle_integer(self, node):
         if len(node.children) == 2:
@@ -90,33 +132,31 @@ class Evaluator(object):
             assert isinstance(w_int, W_Int)
             w_int.intval = -w_int.intval
 
-    handle_comparisation = handle_chain = ignore
     def handle_compare(self, node):
-        a = self.stack.pop()
-        comp = self.stack.pop()
-        b = self.stack.pop()
+        b = self.pop(W_Int)
+        comp = self.pop(W_Compare)
+        a = self.pop(W_Int)
 
-        assert isinstance(a, W_Int)
-        assert isinstance(b, W_Int)
-        assert isinstance(comp, W_Compare)
-        self.stack.append(W_Bool(comp.op(a.intval, b.intval)))
+        op = comp.op
+        an = a.intval
+        bn = b.intval
+        result = op(an, bn)
+        self.push(W_Bool(bool(result)))
 
     def handle_statement(self, node):
-        def remove(n):
-            i = self.todo.index(n)
-            if i >= 0:
-                del self.todo[i]
 
         if len(node.children) == 1:
-            number = self.stack.pop()
+            number = self.pop(W_Int)
             n = number.intval
             if n < 0:
-                remove(-n)
+                self.todo.remove(-n)
             else:
                 self.todo.append(n)
         else:
             b_count = self.stack.pop()
             b_number = self.stack.pop()
+            assert isinstance(b_count, W_Int)
+            assert isinstance(b_number, W_Int)
             count = b_count.intval
             number = b_number.intval
             if number < 0:
@@ -124,7 +164,7 @@ class Evaluator(object):
                 number = -number
             if count < 0:
                 for i in range(count):
-                    remove(number)
+                    self.todo.remove(number)
             else:
                 for i in range(count):
                     self.todo.append(number)
@@ -134,12 +174,19 @@ class Evaluator(object):
     def handle_addition(self, node):
         if len(node.children) == 1:
             return
-        #XXX STRINGS
-        a = self.stack.pop()
         b = self.stack.pop()
-        assert isinstance(a, W_Int)
-        assert isinstance(b, W_Int)
-        self.stack.append(W_Int(a.intval+b.intval))
+        a = self.stack.pop()
+
+        if isinstance(a, W_Int) and isinstance(b, W_Int):
+            self.stack.append(W_Int(a.intval+b.intval))
+        elif isinstance(a, W_String) and isinstance(b, W_String):
+            self.stack.append(W_String(a.strval + b.strval))
+        elif isinstance(a, W_Int) and isinstance(b, W_String):
+            self.stack.append(W_String(str(a.intval) + b.strval))
+        elif isinstance(a, W_String) and isinstance(b,  W_Int):
+            self.stack.append(W_String(a.strval + str(b.intval)))
+        else:
+            raise ValueError
 
 
     def handle_function(self, node):
@@ -152,18 +199,38 @@ class Evaluator(object):
                 count += 1
         self.stack.append(W_Int(count))
 
-    def handle_expr(self, node):
-        pass
-
     def handle_bool(self, node):
         val = self.stack.pop()
         if isinstance(val, W_Int):
-            self.stack.append(W_Bool(bool(val.intval)))
+            has = False
+            for i in range(len(self.todo)):
+                if self.todo[i] == val.intval:
+                    has = True
+                    break
+
+            self.stack.append(W_Bool(has))
         else:
             self.stack.append(val)
 
     def handle_boolean(self, node):
-        pass
+        if len(node.children) == 1:
+            return
+
+        a = self.stack.pop()
+        chain = self.stack.pop()
+        b = self.stack.pop()
+
+        assert isinstance(a, W_Bool)
+        assert isinstance(b, W_Bool)
+        assert isinstance(chain, W_Chain)
+        if chain.op == 'a':
+            res = a.value & b.value
+        elif chain.op == 'o':
+            res = a.value | b.value
+        else:
+            raise ValueError
+        assert isinstance(res, bool)
+        self.stack.append(W_Bool(res))
 
     def handle_statements(self, node):
         pass
@@ -174,7 +241,7 @@ class Evaluator(object):
         if len(self.stack) >=2 and isinstance(self.stack[-2], W_Action):
             truth = self.stack.pop()
             assert isinstance(truth, W_Bool)
-            action = self.stack.pop()
+            action = self.pop(W_Action).name
             if not truth.value:
                 return
 
@@ -184,6 +251,8 @@ class Evaluator(object):
             elif action=='forget':
                 self.keep = False
                 raise StopIteration
+            elif action=='again':
+                self.keep = True
         else:
             maybe_text = self.stack.pop()
             if isinstance(maybe_text, W_Int):

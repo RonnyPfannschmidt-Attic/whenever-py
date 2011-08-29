@@ -61,38 +61,45 @@ SEMICOLON: ";";
 OR: "\|\|";
 AND: "&&";
 
-command:  <op> [ SEMICOLON ];
+command:  >op<  [SEMICOLON] ;
 op: action+ statements | action+ | statements;
 
 
 
-integer: DECIMAL | "-" DECIMAL;
-number: integer| function | STRING;
+integer: <DECIMAL> | "-" DECIMAL;
+number: <integer>| <function> | <STRING>;
 
 statement: integer [SHARP] expr | integer;
-statements: (statement COMMA)* statement;
+statements: (statement [COMMA])* statement;
 
 
 
-function: "N" [LPAR] expr [RPAR];
+function: ["N"] [LPAR] expr [RPAR];
 
 addition: (number [PLUS])* number;
-expr: addition|number;
+expr: <addition>;
 
 comparisation: EQ | LT | GT | LTE | GTE;
-compare: expr comparisation expr;
+compare: expr >comparisation< expr;
 
 
 bool: compare | expr;
 chain: AND |OR;
-boolean: (bool chain)* bool;
+boolean: (bool >chain<)* bool;
 
 
 ACTION: "defer|again|forget";
 PRINT: "print";
-action: ACTION [LPAR] boolean [RPAR] | PRINT [LPAR] expr [RPAR];
+action: ACTION [LPAR] boolean [RPAR] | [PRINT] [LPAR] expr [RPAR];
 
 """)
 
 
-parse_command = make_parse_function(regexs, rules)
+parse_function = make_parse_function(regexs, rules)
+
+def parse_command(command):
+    parse_tree = parse_function(command)
+    to_ast = ToAST()
+    tree = to_ast.transform(parse_tree)
+    #tree.view()
+    return tree

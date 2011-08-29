@@ -24,6 +24,9 @@ class Runner(object):
             command = self.todo.pop(number)
 
             evaluator = Evaluator(self.todo)
-            evaluator.handle(self.statements[command])
+            try:
+                evaluator.handle(self.statements[command])
+            except StopIteration:
+                pass
             if evaluator.keep:
                 self.todo.append(number)
