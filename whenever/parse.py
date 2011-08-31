@@ -15,6 +15,7 @@ def parse(filename):
         if len(line) == 0:
             break
         number, commands = parseline(line)
+        #commands.view()
         assert number not in result
         result[number] = commands
     return result

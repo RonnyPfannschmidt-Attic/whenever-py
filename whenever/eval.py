@@ -54,8 +54,12 @@ class W_Bool(W_Object):
     __slots__ = 'value',
     def __init__(self, value):
         self.value = value
+    
+    def __repr__(self):
+        return str(self.value)
 
-
+class Paused(Exception):
+    pass
 
 class Evaluator(object):
     __slots__ = 'todo', 'resultstate', 'stack', 'node_stack', 'keep'
@@ -77,6 +81,15 @@ class Evaluator(object):
         assert isinstance(item, type)
         return item
 
+    def execute(self, node):
+        try:
+            self.handle(node)
+        except Paused:
+            pass
+        except Exception:
+            print node
+            raise
+
     def handle(self, node):
         #print ' '*len(self.node_stack), node.symbol
         self.node_stack.append(node)
@@ -88,6 +101,7 @@ class Evaluator(object):
 
         #print self.stack
         #print [x.symbol for x in self.node_stack]
+        #print ' '*(len(self.node_stack)-1), node.symbol, '!'
         if not node.symbol[0] == '_':
             handler = self.dispatch[node.symbol]
             handler(self, node)
@@ -128,9 +142,9 @@ class Evaluator(object):
 
     def handle_integer(self, node):
         if len(node.children) == 2:
-            w_int = self.stack[-1]
-            assert isinstance(w_int, W_Int)
-            w_int.intval = -w_int.intval
+            i = self.pop(W_Int)
+            i.intval = -i.intval
+            self.push(i)
 
     def handle_compare(self, node):
         b = self.pop(W_Int)
@@ -144,30 +158,16 @@ class Evaluator(object):
         self.push(W_Bool(bool(result)))
 
     def handle_statement(self, node):
-
         if len(node.children) == 1:
-            number = self.pop(W_Int)
-            n = number.intval
-            if n < 0:
-                self.todo.remove(-n)
-            else:
-                self.todo.append(n)
+            count = 1
         else:
-            b_count = self.stack.pop()
-            b_number = self.stack.pop()
-            assert isinstance(b_count, W_Int)
-            assert isinstance(b_number, W_Int)
-            count = b_count.intval
-            number = b_number.intval
-            if number < 0:
-                count = -count
-                number = -number
-            if count < 0:
-                for i in range(count):
-                    self.todo.remove(number)
-            else:
-                for i in range(count):
-                    self.todo.append(number)
+            count = self.pop(W_Int).intval
+        number = self.pop(W_Int).intval
+        if number < 0:
+            count = -count
+            number = -number
+        self.todo[number] = max(self.todo[number] + count, 0)
+
 
 
 
@@ -191,46 +191,32 @@ class Evaluator(object):
 
     def handle_function(self, node):
         #XXX: its n
-        w_int = self.stack.pop()
-        assert isinstance(w_int, W_Int)
-        count = 0
-        for i in range(len(self.todo)):
-            if self.todo[i] == w_int.intval:
-                count += 1
-        self.stack.append(W_Int(count))
+        w_int = self.pop(W_Int)
+        self.push(W_Int(self.todo[w_int.intval]))
 
     def handle_bool(self, node):
         val = self.stack.pop()
         if isinstance(val, W_Int):
-            has = False
-            for i in range(len(self.todo)):
-                if self.todo[i] == val.intval:
-                    has = True
-                    break
-
-            self.stack.append(W_Bool(has))
+            number = self.todo[val.intval]
+            self.push(W_Bool(bool(number)))
         else:
-            self.stack.append(val)
+            self.push(val)
 
     def handle_boolean(self, node):
         if len(node.children) == 1:
             return
 
-        a = self.stack.pop()
-        chain = self.stack.pop()
-        b = self.stack.pop()
+        b = self.pop(W_Bool).value
+        op = self.pop(W_Chain).op
+        a = self.pop(W_Bool).value
 
-        assert isinstance(a, W_Bool)
-        assert isinstance(b, W_Bool)
-        assert isinstance(chain, W_Chain)
-        if chain.op == 'a':
-            res = a.value & b.value
-        elif chain.op == 'o':
-            res = a.value | b.value
+        if op == 'a':
+            res = a and b
+        elif op == 'o':
+            res = a or b
         else:
             raise ValueError
-        assert isinstance(res, bool)
-        self.stack.append(W_Bool(res))
+        self.push(W_Bool(res))
 
     def handle_statements(self, node):
         pass
@@ -239,18 +225,18 @@ class Evaluator(object):
 
     def handle_action(self, node):
         if len(self.stack) >=2 and isinstance(self.stack[-2], W_Action):
-            truth = self.stack.pop()
-            assert isinstance(truth, W_Bool)
+            truth = self.pop(W_Bool).value
             action = self.pop(W_Action).name
-            if not truth.value:
+
+            if not truth:
                 return
 
             if  action == 'defer':
                 self.keep = True
-                raise StopIteration
+                raise Paused
             elif action=='forget':
                 self.keep = False
-                raise StopIteration
+                raise Paused
             elif action=='again':
                 self.keep = True
         else:
