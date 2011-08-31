@@ -147,14 +147,10 @@ class Evaluator(object):
             self.push(i)
 
     def handle_compare(self, node):
-        b = self.pop(W_Int)
+        b = self.pop(W_Int).intval
         comp = self.pop(W_Compare)
-        a = self.pop(W_Int)
-
-        op = comp.op
-        an = a.intval
-        bn = b.intval
-        result = op(an, bn)
+        a = self.pop(W_Int).intval
+        result = comp.op(a, b)
         self.push(W_Bool(bool(result)))
 
     def handle_statement(self, node):

@@ -12,14 +12,13 @@ class Runner(object):
         self.statements = statements
         items = statements.keys()
         self.todo = {}
-        for i in range(len(items)):
-            self.todo[items[i]] = 1
+        for item in items:
+            self.todo[item] = 1
 
     
     def has_work(self):
-        items = self.todo.keys()
-        for i in range(len(items)):
-            if self.todo[items[i]]:
+        for item in self.todo:
+            if self.todo[item]:
                 return True
         return False
 
