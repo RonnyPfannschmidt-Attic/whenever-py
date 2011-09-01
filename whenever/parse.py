@@ -21,7 +21,6 @@ def parse(filename):
     return result
 
 
-
 def parseline(line):
     number_str, commands = line.split(' ', 1)
     try:
@@ -29,12 +28,12 @@ def parseline(line):
     except LexerError, e:
         print e.args[0], e.nice_error_message()
         print commands
-        print ' '*e.args[2].i + '^'
+        print ' ' * e.args[2].i + '^'
         raise
     except ParseError, e:
         print e.args[0], e.nice_error_message()
         print commands
-        print ' '*e.args[0].i + '^'
+        print ' ' * e.args[0].i + '^'
         raise
 
 regexs, rules, ToAST = parse_ebnf(
@@ -84,7 +83,7 @@ comparisation: EQ | LT | GT | LTE | GTE;
 compare: expr >comparisation< expr;
 
 
-bool: compare | expr;
+bool: <compare> | >expr<;
 chain: AND |OR;
 boolean: (bool >chain<)* bool;
 
@@ -95,8 +94,8 @@ action: ACTION [LPAR] boolean [RPAR] | [PRINT] [LPAR] expr [RPAR];
 
 """)
 
-
 parse_function = make_parse_function(regexs, rules)
+
 
 def parse_command(command):
     parse_tree = parse_function(command)

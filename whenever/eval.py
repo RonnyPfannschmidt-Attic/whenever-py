@@ -207,9 +207,9 @@ class Evaluator(object):
         a = self.pop(W_Bool).value
 
         if op == 'a':
-            res = a and b
+            res = a & b
         elif op == 'o':
-            res = a or b
+            res = a | b
         else:
             raise ValueError
         self.push(W_Bool(res))
@@ -253,4 +253,3 @@ class Evaluator(object):
             dispatch[name[7:]] = function
 
     del name, function
-
